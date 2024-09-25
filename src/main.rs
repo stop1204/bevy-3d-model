@@ -1,5 +1,13 @@
-use std::slice::Windows;
-use bevy::prelude::*;
+/// https://bevy-cheatbook.github.io/platforms/wasm.html
+///
+/// must install wasm-pack
+/// ```
+/// rustup target add wasm32-unknown-unknown
+/// cargo install trunk
+/// cargo install wasm-bindgen-cli
+/// ```
+/// (webserver may not work)  run with : `cargo run --target wasm32-unknown-unknown`
+/// run with `trunk serve --open`
 use bevy::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 
@@ -34,8 +42,15 @@ fn mouse_input_system(
 
 fn main() {
     App::new()
-
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Web App".to_string(),
+                resolution: (800., 600.).into(),
+                ..default()
+            }),
+            ..default()
+        }))
+        // .add_plugins(DefaultPlugins)
         .init_resource::<RotationState>()
         .add_systems(Startup, (
             load_gltf,
@@ -51,6 +66,8 @@ fn main() {
             update_camera_transform,
             mouse_input_system, // New system to handle mouse input
             camera_zoom_fov_system, // Updated zoom system
+            camera_movement_system,
+
         ))
         .run();
 }
@@ -191,6 +208,7 @@ struct CameraController {
     fov: f32,
     min_fov: f32,
     max_fov: f32,
+    target: Vec3,
 }
 
 
@@ -208,6 +226,7 @@ impl Default for CameraController {
             fov: 60.0,
             min_fov: 20.0,
             max_fov: 120.0,
+            target: Vec3::ZERO,
         }
     }
 }
@@ -245,8 +264,12 @@ fn camera_zoom_fov_system(
         let pitch_rotation = Quat::from_rotation_x(controller.pitch);
         let rotation = yaw_rotation * pitch_rotation;
 
-        transform.translation = rotation * Vec3::new(0.0, 0.0, controller.distance);
-        transform.look_at(Vec3::ZERO, Vec3::Y);
+        // transform.translation = rotation * Vec3::new(0.0, 0.0, controller.distance);
+        // transform.look_at(Vec3::ZERO, Vec3::Y);
+
+        transform.translation = controller.target+rotation * Vec3::new(0.0, 0.0, controller
+            .distance);
+        transform.look_at(controller.target, Vec3::Y);
 
     }
 }
@@ -281,8 +304,12 @@ fn camera_rotation_system(
         let pitch_rotation = Quat::from_rotation_x(controller.pitch);
         let rotation = yaw_rotation * pitch_rotation;
 
-        transform.translation = rotation * Vec3::new(0.0, 0.0, controller.distance);
-        transform.look_at(Vec3::ZERO, Vec3::Y);
+        // transform.translation = rotation * Vec3::new(0.0, 0.0, controller.distance);
+        // transform.look_at(Vec3::ZERO, Vec3::Y);
+
+        transform.translation = controller.target+rotation * Vec3::new(0.0, 0.0, controller
+            .distance);
+        transform.look_at(controller.target, Vec3::Y);
     }
 }
 
@@ -315,8 +342,10 @@ fn update_camera_transform(
         let pitch_rotation = Quat::from_rotation_x(controller.pitch);
         let rotation = yaw_rotation * pitch_rotation;
 
-        transform.translation = rotation * Vec3::new(0.0, 0.0, controller.distance);
-        transform.look_at(Vec3::ZERO, Vec3::Y);
+        transform.translation = controller.target+rotation * Vec3::new(0.0, 0.0, controller
+            .distance);
+        transform.look_at(controller.target, Vec3::Y);
+        // transform.look_at(Vec3::ZERO, Vec3::Y);
     }
 
 
@@ -339,3 +368,42 @@ fn update_camera_transform(
 //         window.set_cursor_visibility(true);
 //     }
 // }
+
+
+/// move camera
+fn camera_movement_system(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut query: Query<&mut CameraController, With<CameraController>>,
+) {
+    let mut direction = Vec3::ZERO;
+    let speed = 5.0; // 调整移动速度
+
+    if keyboard_input.pressed(KeyCode::KeyW ) || keyboard_input.pressed(KeyCode::ArrowUp) {
+        direction += Vec3::Y;
+    }
+    if keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown) {
+        direction -= Vec3::Y;
+    }
+    if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
+        direction -= Vec3::X;
+    }
+    if keyboard_input.pressed(KeyCode::KeyD) || keyboard_input.pressed(KeyCode::AltRight) {
+        direction += Vec3::X;
+    }
+
+    if direction.length_squared() > 0.0 {
+        direction = direction.normalize();
+    }
+
+    for mut controller in query.iter_mut() {
+        // trasform direction to world space
+        let right = Quat::from_rotation_y(controller.yaw) * Vec3::X;
+        let forward = Quat::from_rotation_y(controller.yaw) * Vec3::Z;
+        let up = Vec3::Y;
+
+        let movement = (right * direction.x + forward * direction.z + up * direction.y) * speed * time.delta_seconds();
+        controller.target += movement;
+    }
+}
+

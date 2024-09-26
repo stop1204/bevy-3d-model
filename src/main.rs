@@ -8,6 +8,11 @@
 /// ```
 /// (webserver may not work)  run with : `cargo run --target wasm32-unknown-unknown`
 /// run with `trunk serve --open`
+
+
+
+/// export CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-server-runner
+/// cargo run --target wasm32-unknown-unknown
 use bevy::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 
@@ -45,7 +50,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Web App".to_string(),
-                resolution: (800., 600.).into(),
+                // resolution: (800., 600.).into(),
                 ..default()
             }),
             ..default()
@@ -159,6 +164,8 @@ fn load_gltf(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
+    // let scene_handle: Handle<Scene> = asset_server.load("/Users/terry/Downloads/bevyengine bevy \
+    // v0.9.1 assets-models_FlightHelmet/FlightHelmet.gltf#Scene0");
     let scene_handle: Handle<Scene> = asset_server.load("3D_Isometric_BEDROOM.glb#Scene0");
 
     commands.insert_resource(MyAssetPack {
